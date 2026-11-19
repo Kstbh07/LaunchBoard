@@ -1,0 +1,91 @@
+{
+  "total_evaluated": 50,
+  "role_accuracy": {
+    "correct": 44,
+    "total": 50,
+    "accuracy_pct": 88.0
+  },
+  "city_accuracy": {
+    "correct": 50,
+    "total": 50,
+    "accuracy_pct": 100.0
+  },
+  "combined_accuracy": {
+    "correct": 44,
+    "total": 50,
+    "accuracy_pct": 88.0
+  },
+  "unknown_predictions": {
+    "unknown_roles": 2,
+    "unknown_cities": 1
+  },
+  "role_distribution": {
+    "Backend Development": 6,
+    "Frontend Development": 5,
+    "Data Analytics": 4,
+    "Full Stack Development": 3,
+    "AI/ML Engineering": 4,
+    "QA / Testing": 3,
+    "DevOps / Cloud": 5,
+    "Data Science": 2,
+    "UI/UX Design": 3,
+    "Product Management": 2,
+    "Cybersecurity": 3,
+    "Mobile Development": 3,
+    "Business Development": 2,
+    "Software Development": 3,
+    "Other": 2
+  },
+  "confusion_matrix": {
+    "Backend Development": {
+      "Backend Development": 5,
+      "Software Development": 1
+    },
+    "Frontend Development": {
+      "Frontend Development": 5
+    },
+    "Data Analytics": {
+      "Data Analytics": 2,
+      "Data Science": 2
+    },
+    "Full Stack Development": {
+      "Full Stack Development": 3
+    },
+    "AI/ML Engineering": {
+      "AI/ML Engineering": 4
+    },
+    "QA / Testing": {
+      "QA / Testing": 3
+    },
+    "DevOps / Cloud": {
+      "DevOps / Cloud": 4,
+      "Software Development": 1
+    },
+    "Data Science": {
+      "Data Science": 2
+    },
+    "UI/UX Design": {
+      "UI/UX Design": 3
+    },
+    "Product Management": {
+      "Product Management": 1,
+      "Data Analytics": 1
+    },
+    "Cybersecurity": {
+      "Cybersecurity": 3
+    },
+    "Mobile Development": {
+      "Mobile Development": 3
+    },
+    "Business Development": {
+      "Business Development": 2
+    },
+    "Software Development": {
+      "Software Development": 2,
+      "Mobile Development": 1
+    },
+    "Other": {
+      "Other": 2
+    }
+  }
+}

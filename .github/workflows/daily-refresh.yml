@@ -1,0 +1,116 @@
+name: Daily Job Collection
+
+on:
+  schedule:
+    # Run daily at 00:30 UTC (6:00 AM IST)
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: 'Comma-separated source names (leave empty for all)'
+        required: false
+        default: ''
+
+env:
+  BACKEND_URL: ${{ secrets.BACKEND_URL }}
+  ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+
+jobs:
+  refresh:
+    name: Collect and Classify Jobs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger collection pipeline
+        id: trigger
+        run: |
+          echo "🚀 Triggering job collection pipeline..."
+          echo "Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "X-Admin-API-Key: ${ADMIN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            "${BACKEND_URL}/api/admin/refresh")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" -ne 200 ] && [ "$HTTP_CODE" -ne 202 ]; then
+            echo "❌ Failed to trigger pipeline"
+            exit 1
+          fi
+
+          RUN_ID=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('run_id',''))" 2>/dev/null || echo "")
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "✅ Pipeline triggered. Run ID: $RUN_ID"
+
+      - name: Wait for pipeline completion
+        run: |
+          echo "⏳ Waiting for pipeline to complete..."
+          MAX_WAIT=1200  # 20 minutes max
+          INTERVAL=30
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+
+            RESPONSE=$(curl -s \
+              -H "X-Admin-API-Key: ${ADMIN_API_KEY}" \
+              "${BACKEND_URL}/api/admin/refresh/status")
+
+            STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "unknown")
+
+            echo "[$ELAPSED s] Pipeline status: $STATUS"
+
+            if [ "$STATUS" = "completed" ] || [ "$STATUS" = "partial" ]; then
+              echo "✅ Pipeline completed with status: $STATUS"
+              echo "$RESPONSE" | python3 -m json.tool
+              break
+            elif [ "$STATUS" = "failed" ]; then
+              echo "❌ Pipeline failed"
+              echo "$RESPONSE" | python3 -m json.tool
+              exit 1
+            fi
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "⚠️ Pipeline did not complete within timeout"
+            exit 1
+          fi
+
+      - name: Report results
+        if: always()
+        run: |
+          echo "📊 Collection Results Summary"
+          echo "============================="
+
+          RESPONSE=$(curl -s \
+            -H "X-Admin-API-Key: ${ADMIN_API_KEY}" \
+            "${BACKEND_URL}/api/admin/refresh/status")
+
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          print(f\"Status: {data.get('status', 'N/A')}\")
+          print(f\"Total Fetched: {data.get('total_fetched', 0)}\")
+          print(f\"New Jobs: {data.get('total_new', 0)}\")
+          print(f\"Updated: {data.get('total_updated', 0)}\")
+          print(f\"Duplicates: {data.get('total_duplicates', 0)}\")
+          print(f\"Classified: {data.get('total_classified', 0)}\")
+          print(f\"Failed: {data.get('total_failed', 0)}\")
+          print(f\"Errors: {data.get('total_errors', 0)}\")
+          sources = data.get('source_results', {})
+          if sources:
+              print(f\"\nSource Results:\")
+              for name, info in sources.items():
+                  print(f\"  {name}: {info.get('fetched', 0)} jobs ({info.get('status', 'N/A')})\")
+          " 2>/dev/null || echo "Could not parse response"

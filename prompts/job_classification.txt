@@ -1,0 +1,69 @@
+You are an expert job classifier for the Indian job market. Analyze the following job listing and return a structured JSON classification.
+
+Job Title: {title}
+Company: {company}
+Location: {location}
+Job Description:
+{description}
+
+Classify this job and return ONLY a valid JSON object with these fields:
+
+1. "role_category": Exactly one of:
+   - "Software Development"
+   - "Frontend Development"
+   - "Backend Development"
+   - "Full Stack Development"
+   - "AI/ML Engineering"
+   - "Data Science"
+   - "Data Analytics"
+   - "DevOps / Cloud"
+   - "Cybersecurity"
+   - "Mobile Development"
+   - "QA / Testing"
+   - "UI/UX Design"
+   - "Product Management"
+   - "Business Development"
+   - "Other"
+
+2. "city": The normalized Indian city name (e.g., "Bengaluru", "Mumbai", "Delhi", "Hyderabad", "Pune", "Chennai"). Use "Remote" if fully remote. Use "Unknown" if the city cannot be determined. Do NOT invent a city.
+
+3. "skills": Array of specific technical skills mentioned (e.g., ["Python", "Django", "PostgreSQL"]). Extract only skills explicitly mentioned. Do not infer unmentioned skills.
+
+4. "experience_level": Exactly one of:
+   - "Fresher" — Explicitly for candidates with 0 years of experience or fresh graduates
+   - "Internship" — Explicitly an internship program, usually time-bound (2-6 months)
+   - "Entry-level" — For 0-2 years of experience, or open to freshers but not explicitly stated
+   - "Experienced" — Requires 2+ years of experience or specific professional background
+   - "Unknown" — Cannot be determined from the description
+
+   IMPORTANT: Do NOT classify a job as "Fresher" unless the description explicitly mentions freshers, 0 experience, or fresh graduates. An internship is NOT automatically "Fresher" — classify it as "Internship". If experience requirements are unclear, use "Entry-level" or "Unknown".
+
+5. "employment_type": Exactly one of:
+   - "Internship" — Time-bound learning/training program
+   - "Full-time" — Permanent full-time employment
+   - "Part-time" — Part-time employment
+   - "Contract" — Fixed-term contract
+
+6. "is_remote": Boolean. true only if the job is fully remote or work-from-home. Hybrid roles should be false.
+
+7. "confidence": Float between 0.0 and 1.0 indicating your confidence in this classification. Use:
+   - 0.9-1.0: Very clear job description with explicit role, location, and experience
+   - 0.7-0.89: Reasonable inference but some ambiguity
+   - 0.5-0.69: Significant ambiguity in one or more fields
+   - Below 0.5: Very unclear, mostly guessing
+
+Classification guidelines:
+- Infer the role from actual responsibilities and required skills, not just the job title
+- Security roles: Any security-focused roles (e.g., "Software Engineer, Security", "Application Security", "Security Analyst", "Infosec", "Security Operations") MUST be classified as "Cybersecurity", NOT generic "Backend Development" or "Software Development".
+- A "Software Engineer" who builds APIs is "Backend Development", not generic "Software Development"
+- A role requiring both frontend and backend is "Full Stack Development"
+- Product/project management roles go to "Product Management"
+- Normalize Indian city names: "Bangalore" → "Bengaluru", "Gurgaon" → "Gurugram"
+- Missing city: If the job is located in a non-Indian city (e.g. London, San Francisco, New York, Berlin, Singapore) or the city is not specified, city MUST be "Unknown". Never invent an Indian city for non-Indian locations.
+- Remote vs On-site:
+  * Multilingual remote terms: Recognize German "Homeoffice", "100% Remote", "Telearbeit", French "Télétravail", Spanish "Teletrabajo" as fully remote (is_remote: true, city: "Remote").
+  * Physical non-Indian office: If Location lists a specific non-Indian city without "remote" (e.g., "London", "Singapore", "New York"), is_remote MUST be false and city MUST be "Unknown", even if the company is remote-friendly.
+- When the description mentions multiple cities, use the primary/first city
+- If the job says "India" without a specific city, use "Unknown"
+
+Return ONLY the JSON object, no additional text or markdown formatting.
