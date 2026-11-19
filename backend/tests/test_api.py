@@ -294,3 +294,47 @@ async def test_refreshing_existing_job_does_not_change_posted_at(client, test_db
     assert data["jobs"][1]["posted_at"] == initial_posted_at.isoformat().replace("+00:00", "Z")
 
 
+def test_render_database_url_normalization():
+    """Verify DATABASE_URL normalizes Render postgres:// and sslmode query parameter."""
+    from app.core.config import Settings
+
+    # Case 1: Render postgres:// without sslmode
+    s1 = Settings(DATABASE_URL="postgres://render_user:pass123@dpg-abc:5432/launchboard")
+    assert s1.DATABASE_URL == "postgresql+asyncpg://render_user:pass123@dpg-abc:5432/launchboard"
+
+    # Case 2: Render postgres:// with sslmode=require
+    s2 = Settings(DATABASE_URL="postgres://render_user:pass123@dpg-abc:5432/launchboard?sslmode=require")
+    assert s2.DATABASE_URL == "postgresql+asyncpg://render_user:pass123@dpg-abc:5432/launchboard?ssl=require"
+
+    # Case 3: Standard postgresql:// with sslmode=prefer
+    s3 = Settings(DATABASE_URL="postgresql://user:pass@localhost:5432/mydb?sslmode=prefer")
+    assert s3.DATABASE_URL == "postgresql+asyncpg://user:pass@localhost:5432/mydb?ssl=prefer"
+
+    # Case 4: Standard postgresql+asyncpg:// (already correct)
+    s4 = Settings(DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/mydb")
+    assert s4.DATABASE_URL == "postgresql+asyncpg://user:pass@localhost:5432/mydb"
+
+
+def test_enable_scheduler_setting():
+    """Verify ENABLE_SCHEDULER setting defaults to True and can be disabled."""
+    from app.core.config import Settings
+    s_default = Settings()
+    assert s_default.ENABLE_SCHEDULER is True
+
+    s_disabled = Settings(ENABLE_SCHEDULER=False)
+    assert s_disabled.ENABLE_SCHEDULER is False
+
+
+@pytest.mark.asyncio
+async def test_cors_vercel_preview_domains(client):
+    """Verify Vercel preview domains are accepted by CORS regex."""
+    headers = {
+        "Origin": "https://launchboard-git-preview-myuser.vercel.app",
+        "Access-Control-Request-Method": "GET",
+    }
+    response = await client.options("/api/stats", headers=headers)
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://launchboard-git-preview-myuser.vercel.app"
+
+
+

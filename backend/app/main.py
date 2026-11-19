@@ -43,9 +43,12 @@ async def lifespan(app: FastAPI):
             )
             await session.commit()
 
-        # Start the background refresh scheduler
-        from app.services.scheduler import scheduler
-        scheduler.start()
+        # Start the background refresh scheduler if enabled
+        if settings.ENABLE_SCHEDULER:
+            from app.services.scheduler import scheduler
+            scheduler.start()
+        else:
+            logger.info("Background scheduler disabled via configuration (ENABLE_SCHEDULER=False)")
     except Exception as exc:
         logger.warning(
             "Database connection could not be established on startup; will retry on request",
@@ -53,8 +56,12 @@ async def lifespan(app: FastAPI):
         )
     yield
     logger.info("Shutting down LaunchBoard API")
-    from app.services.scheduler import scheduler
-    await scheduler.stop()
+    if settings.ENABLE_SCHEDULER:
+        try:
+            from app.services.scheduler import scheduler
+            await scheduler.stop()
+        except Exception as exc:
+            logger.warning("Error stopping scheduler during shutdown", error=str(exc))
     await close_db()
 
 
@@ -83,6 +90,7 @@ app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

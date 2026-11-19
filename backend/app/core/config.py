@@ -5,13 +5,14 @@ import json
 from typing import List, Optional, Union
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
     """LaunchBoard backend configuration settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=True,
@@ -92,6 +93,38 @@ class Settings(BaseSettings):
         default="development",
         description="Deployment environment: development, staging, production",
     )
+    ENABLE_SCHEDULER: bool = Field(
+        default=True,
+        description="Enable automatic background collection scheduler",
+    )
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_database_url(cls, value: str) -> str:
+        """Normalize database connection string for asyncpg and Render PostgreSQL."""
+        if not value or not isinstance(value, str):
+            return value
+        val = value.strip().strip("'\"")
+        # Render and some cloud providers supply postgres:// instead of postgresql://
+        if val.startswith("postgres://"):
+            val = "postgresql+asyncpg://" + val[len("postgres://"):]
+        elif val.startswith("postgresql://") and not val.startswith("postgresql+asyncpg://"):
+            val = "postgresql+asyncpg://" + val[len("postgresql://"):]
+
+        # asyncpg does not accept sslmode query parameter (requires ssl)
+        try:
+            u = make_url(val)
+            query = dict(u.query)
+            if "sslmode" in query:
+                ssl_val = query.pop("sslmode")
+                if "ssl" not in query:
+                    query["ssl"] = ssl_val
+                u = u._replace(query=query)
+                val = u.render_as_string(hide_password=False)
+        except Exception:
+            pass
+
+        return val
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
